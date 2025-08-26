@@ -1,0 +1,40 @@
+name: Deploy to AWS Lambda
+
+on:
+  push:
+    branches: [ master ]   # your repo uses master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - run: npm ci
+
+      # Option A: OIDC (recommended). Create an IAM role with a GitHub OIDC trust.
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ca-central-1
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+
+      # Option B: Static keys for practice. Add repo secrets AWS_ACCESS_KEY_ID/SECRET.
+      # - name: Configure AWS credentials (Access Keys)
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     aws-region: ca-central-1
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Deploy with Serverless
+        run: npx serverless deploy --stage prod --region ca-central-1
