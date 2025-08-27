@@ -1,14 +1,23 @@
-name: Deploy to AWS Lambda
+name: Deploy to AWS Lambda (Serverless v3)
 
 on:
   push:
-    branches: [ master ]   # change to main if that's your default
+    branches: [ master ]   # change to main if needed
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ca-central-1
+  STAGE: prod
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    # Avoid overlapping deploys on the same branch
+    concurrency:
+      group: deploy-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
       - uses: actions/checkout@v4
@@ -18,18 +27,18 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
       - name: Configure AWS credentials (keys)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-region: ca-central-1
+          aws-region: ${{ env.AWS_REGION }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      # Optional sanity check
-      - name: Verify AWS identity
-        run: aws sts get-caller-identity
+      - name: Deploy with Serverless v3
+        run: npx serverless@3 deploy --stage $STAGE --region $AWS_REGION
 
-      - name: Deploy with Serverless
-        run: npx serverless deploy --stage prod --region ca-central-1
+      - name: Show stack outputs
+        run: npx serverless@3 info --stage $STAGE --region $AWS_REGION
